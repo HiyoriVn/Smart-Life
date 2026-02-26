@@ -18,13 +18,11 @@ exports.getTasks = async (req, res) => {
       .status(200)
       .json({ message: "Lấy danh sách task thành công", data: tasks });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: "Lỗi khi lấy danh sách task",
-        data: null,
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Lỗi khi lấy danh sách task",
+      data: null,
+      error: error.message,
+    });
   }
 };
 
@@ -86,13 +84,11 @@ exports.updateTaskStatus = async (req, res) => {
       .status(200)
       .json({ message: "Cập nhật trạng thái task thành công", data: task });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: "Lỗi khi cập nhật trạng thái task",
-        data: null,
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Lỗi khi cập nhật trạng thái task",
+      data: null,
+      error: error.message,
+    });
   }
 };
 
@@ -112,5 +108,54 @@ exports.deleteTask = async (req, res) => {
     res
       .status(500)
       .json({ message: "Lỗi khi xóa task", data: null, error: error.message });
+  }
+};
+
+// GET /api/tasks/:id
+exports.getTaskById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findByPk(id);
+    if (!task) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy task", data: null });
+    }
+    res.status(200).json({ message: "Lấy task thành công", data: task });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Lỗi khi lấy task", data: null, error: error.message });
+  }
+};
+
+// PUT /api/tasks/:id  — cập nhật toàn bộ thông tin task
+exports.updateTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, deadline, priority, status, course_id } =
+      req.body;
+    const task = await Task.findByPk(id);
+    if (!task) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy task", data: null });
+    }
+    if (title !== undefined) task.title = title;
+    if (description !== undefined) task.description = description;
+    if (deadline !== undefined) task.deadline = deadline;
+    if (priority !== undefined) task.priority = priority;
+    if (status !== undefined) task.status = status;
+    if (course_id !== undefined) task.course_id = course_id;
+    await task.save();
+    res.status(200).json({ message: "Cập nhật task thành công", data: task });
+  } catch (error) {
+    res
+      .status(500)
+      .json({
+        message: "Lỗi khi cập nhật task",
+        data: null,
+        error: error.message,
+      });
   }
 };

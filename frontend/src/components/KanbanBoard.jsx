@@ -8,42 +8,73 @@ import {
   closestCenter,
 } from "@dnd-kit/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import {
+  Plus,
+  GripVertical,
+  Trash2,
+  Calendar,
+  Flag,
+  CheckCircle2,
+  Circle,
+  Loader2,
+  AlertCircle,
+  ClipboardList,
+  RefreshCw,
+} from "lucide-react";
 
 const API_BASE = "http://localhost:5000/api";
-const HARDCODED_USER_ID = "00000000-0000-0000-0000-000000000001"; // Hackathon shortcut — bỏ qua đăng nhập
+const HARDCODED_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 const COLUMNS = [
   {
     id: "todo",
-    label: "📋 To Do",
-    headerColor: "bg-slate-200 text-slate-700",
-    bodyColor: "bg-slate-50",
-    countColor: "bg-slate-400",
+    label: "To Do",
+    icon: <Circle size={16} />,
+    headerClass: "bg-slate-100 border-slate-300 text-slate-700",
+    bodyClass: "bg-slate-50/60",
+    dotClass: "bg-slate-400",
+    badgeClass: "bg-slate-200 text-slate-600",
   },
   {
     id: "in_progress",
-    label: "⚡ In Progress",
-    headerColor: "bg-blue-200 text-blue-800",
-    bodyColor: "bg-blue-50",
-    countColor: "bg-blue-400",
+    label: "In Progress",
+    icon: <Loader2 size={16} className="animate-spin" />,
+    headerClass: "bg-blue-50 border-blue-200 text-blue-800",
+    bodyClass: "bg-blue-50/40",
+    dotClass: "bg-blue-500",
+    badgeClass: "bg-blue-100 text-blue-700",
   },
   {
     id: "done",
-    label: "✅ Done",
-    headerColor: "bg-green-200 text-green-800",
-    bodyColor: "bg-green-50",
-    countColor: "bg-green-400",
+    label: "Done",
+    icon: <CheckCircle2 size={16} />,
+    headerClass: "bg-emerald-50 border-emerald-200 text-emerald-800",
+    bodyClass: "bg-emerald-50/40",
+    dotClass: "bg-emerald-500",
+    badgeClass: "bg-emerald-100 text-emerald-700",
   },
 ];
 
-const PRIORITY_STYLES = {
-  high: "bg-red-100 text-red-700 border-red-300",
-  medium: "bg-yellow-100 text-yellow-700 border-yellow-300",
-  low: "bg-green-100 text-green-700 border-green-300",
+const PRIORITY_CONFIG = {
+  high: {
+    cls: "bg-red-100 text-red-700 border-red-200",
+    dot: "bg-red-500",
+    label: "Cao",
+  },
+  medium: {
+    cls: "bg-amber-100 text-amber-700 border-amber-200",
+    dot: "bg-amber-500",
+    label: "Trung bình",
+  },
+  low: {
+    cls: "bg-green-100 text-green-700 border-green-200",
+    dot: "bg-green-500",
+    label: "Thấp",
+  },
 };
 
-// ─── Draggable Task Card ──────────────────────────────────────────────────────
-function TaskCard({ task, overlay = false }) {
+// ─── Task Card ────────────────────────────────────────────────────────────────
+function TaskCard({ task, onDelete, overlay = false }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: task.id });
 
@@ -51,45 +82,66 @@ function TaskCard({ task, overlay = false }) {
     ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
     : undefined;
 
-  const priorityStyle =
-    PRIORITY_STYLES[task.priority?.toLowerCase()] ??
-    "bg-gray-100 text-gray-600";
-
-  const base = `
-    bg-white rounded-xl border border-gray-200 p-4 shadow-sm select-none
-    transition-shadow duration-150
-    ${overlay ? "shadow-2xl rotate-2 scale-105 ring-2 ring-blue-400" : "hover:shadow-md cursor-grab active:cursor-grabbing"}
-    ${isDragging && !overlay ? "opacity-40" : "opacity-100"}
-  `;
+  const priority =
+    PRIORITY_CONFIG[task.priority?.toLowerCase()] ?? PRIORITY_CONFIG.medium;
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
-      className={base}
+      className={`
+        group bg-white rounded-xl border border-gray-200 p-3.5 shadow-sm select-none
+        transition-all duration-150
+        ${overlay ? "shadow-2xl rotate-1 scale-[1.03] ring-2 ring-blue-400 border-blue-300" : "hover:shadow-md hover:border-gray-300"}
+        ${isDragging && !overlay ? "opacity-30 scale-95" : ""}
+      `}
     >
-      <p className="font-semibold text-gray-800 text-sm leading-snug mb-2">
-        {task.title}
-      </p>
-      {task.description && (
-        <p className="text-xs text-gray-500 mb-2 line-clamp-2">
-          {task.description}
-        </p>
-      )}
-      <div className="flex items-center justify-between mt-1 flex-wrap gap-1">
-        {task.priority && (
-          <span
-            className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${priorityStyle}`}
+      <div className="flex items-start gap-2">
+        {/* Drag handle */}
+        <button
+          {...listeners}
+          {...attributes}
+          className="mt-0.5 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+        >
+          <GripVertical size={15} />
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-800 leading-snug mb-1.5 truncate">
+            {task.title}
+          </p>
+          {task.description && (
+            <p className="text-xs text-gray-500 mb-2 line-clamp-2 leading-relaxed">
+              {task.description}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            {task.priority && (
+              <span
+                className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${priority.cls}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${priority.dot}`} />
+                {priority.label}
+              </span>
+            )}
+            {task.deadline && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-gray-400">
+                <Calendar size={11} />
+                {new Date(task.deadline).toLocaleDateString("vi-VN")}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Delete button */}
+        {!overlay && (
+          <button
+            onClick={() => onDelete(task.id)}
+            className="opacity-0 group-hover:opacity-100 shrink-0 mt-0.5 text-gray-300 hover:text-red-500 transition-all"
+            title="Xóa task"
           >
-            {task.priority.toUpperCase()}
-          </span>
-        )}
-        {task.deadline && (
-          <span className="text-[11px] text-gray-400">
-            📅 {new Date(task.deadline).toLocaleDateString("vi-VN")}
-          </span>
+            <Trash2 size={14} />
+          </button>
         )}
       </div>
     </div>
@@ -97,18 +149,21 @@ function TaskCard({ task, overlay = false }) {
 }
 
 // ─── Droppable Column ─────────────────────────────────────────────────────────
-function KanbanColumn({ column, tasks }) {
+function KanbanColumn({ column, tasks, onDelete }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
-    <div className="flex flex-col w-full min-w-70 max-w-[320px]">
+    <div className="flex flex-col flex-1 min-w-60 max-w-xs">
       {/* Header */}
       <div
-        className={`flex items-center justify-between px-4 py-3 rounded-t-xl font-bold text-sm ${column.headerColor}`}
+        className={`flex items-center justify-between px-3.5 py-2.5 rounded-t-xl border ${column.headerClass} mb-0`}
       >
-        <span>{column.label}</span>
+        <div className="flex items-center gap-2 font-semibold text-sm">
+          {column.icon}
+          {column.label}
+        </div>
         <span
-          className={`text-white text-xs px-2 py-0.5 rounded-full ${column.countColor}`}
+          className={`text-xs font-bold px-2 py-0.5 rounded-full ${column.badgeClass}`}
         >
           {tasks.length}
         </span>
@@ -118,18 +173,24 @@ function KanbanColumn({ column, tasks }) {
       <div
         ref={setNodeRef}
         className={`
-          flex-1 min-h-120 rounded-b-xl p-3 flex flex-col gap-3
-          transition-colors duration-200
-          ${column.bodyColor}
-          ${isOver ? "ring-2 ring-blue-400 ring-inset bg-blue-100/50" : ""}
+          flex-1 min-h-96 rounded-b-xl p-3 flex flex-col gap-2.5
+          border border-t-0 transition-all duration-200
+          ${column.bodyClass}
+          ${isOver ? "ring-2 ring-blue-400 ring-inset bg-blue-50/60 border-blue-200" : "border-gray-200"}
         `}
       >
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
+          <TaskCard key={task.id} task={task} onDelete={onDelete} />
         ))}
-        {tasks.length === 0 && (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-xs text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-            Thả task vào đây
+        {tasks.length === 0 && !isOver && (
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-300 gap-2 py-10 border-2 border-dashed border-gray-200 rounded-lg">
+            <ClipboardList size={28} strokeWidth={1.2} />
+            <p className="text-xs">Thả task vào đây</p>
+          </div>
+        )}
+        {isOver && (
+          <div className="h-16 rounded-lg border-2 border-dashed border-blue-400 bg-blue-50/60 flex items-center justify-center text-blue-400 text-xs">
+            Thả vào đây
           </div>
         )}
       </div>
@@ -142,12 +203,14 @@ function AddTaskModal({ onClose, onAdded }) {
   const [form, setForm] = useState({
     title: "",
     description: "",
-    deadline: "",
+    deadline: new Date().toISOString().split("T")[0],
     priority: "medium",
     status: "todo",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -171,58 +234,107 @@ function AddTaskModal({ onClose, onAdded }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-gray-800">➕ Thêm Task mới</h2>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+            <Plus size={18} className="text-blue-600" /> Thêm Task mới
+          </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            className="text-gray-400 hover:text-gray-600 text-xl leading-none w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100"
           >
-            &times;
+            ✕
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <input
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="Tên công việc *"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            required
-          />
-          <textarea
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="Mô tả (tuỳ chọn)"
-            rows={2}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
-          <div className="flex gap-2">
-            <select
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              value={form.priority}
-              onChange={(e) => setForm({ ...form, priority: e.target.value })}
-            >
-              <option value="low">🟢 Low</option>
-              <option value="medium">🟡 Medium</option>
-              <option value="high">🔴 High</option>
-            </select>
+
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-3.5">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              Tên công việc *
+            </label>
             <input
-              type="date"
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              value={form.deadline}
-              onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+              placeholder="VD: Ôn tập Toán Giải tích chương 3"
+              value={form.title}
+              onChange={(e) => set("title", e.target.value)}
               required
             />
           </div>
-          {error && <p className="text-red-500 text-xs">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-2 rounded-lg text-sm transition-colors"
-          >
-            {loading ? "Đang tạo..." : "Tạo Task"}
-          </button>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              Mô tả
+            </label>
+            <textarea
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Chi tiết thêm (tùy chọn)"
+              rows={2}
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                Mức độ ưu tiên
+              </label>
+              <select
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={form.priority}
+                onChange={(e) => set("priority", e.target.value)}
+              >
+                <option value="low">🟢 Thấp</option>
+                <option value="medium">🟡 Trung bình</option>
+                <option value="high">🔴 Cao</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                Deadline *
+              </label>
+              <input
+                type="date"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={form.deadline}
+                onChange={(e) => set("deadline", e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-red-600 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              <AlertCircle size={13} /> {error}
+            </div>
+          )}
+
+          <div className="flex gap-2 mt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Đang tạo...
+                </>
+              ) : (
+                <>
+                  <Plus size={14} /> Tạo Task
+                </>
+              )}
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -236,108 +348,108 @@ export default function KanbanBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
 
-  // Fetch tasks từ API
+  // ── Fetch tasks ──
+  const fetchTasks = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/tasks`);
+      const json = await res.json();
+      if (!res.ok)
+        throw new Error(json.message || "Không thể tải danh sách task");
+      setTasks(json.data ?? []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/tasks`);
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.message || "Không thể tải tasks");
-        setTasks(json.data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchTasks();
   }, []);
 
-  // Group tasks by status
-  const tasksByColumn = COLUMNS.reduce((acc, col) => {
+  // ── Group tasks ──
+  const byColumn = COLUMNS.reduce((acc, col) => {
     acc[col.id] = tasks.filter((t) => t.status === col.id);
     return acc;
   }, {});
 
-  const handleDragStart = ({ active }) => {
+  // ── Drag handlers ──
+  const handleDragStart = ({ active }) =>
     setActiveTask(tasks.find((t) => t.id === active.id) ?? null);
-  };
 
   const handleDragEnd = async ({ active, over }) => {
     setActiveTask(null);
     if (!over) return;
-
-    const newStatus = over.id; // over.id là id của column droppable
-    const taskId = active.id;
-    const task = tasks.find((t) => t.id === taskId);
-
+    const newStatus = over.id;
+    const task = tasks.find((t) => t.id === active.id);
     if (!task || task.status === newStatus) return;
 
-    // Optimistic update UI
+    // Optimistic UI update
     setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)),
+      prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)),
     );
+    setUpdatingId(task.id);
 
-    // Gọi API lưu trạng thái mới
     try {
-      const res = await fetch(`${API_BASE}/tasks/${taskId}/status`, {
+      const res = await fetch(`${API_BASE}/tasks/${task.id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (!res.ok) throw new Error("API lỗi");
+      if (!res.ok) throw new Error("API error");
     } catch {
-      // Rollback nếu lỗi
+      // Rollback về trạng thái cũ
       setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, status: task.status } : t)),
+        prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t)),
       );
+    } finally {
+      setUpdatingId(null);
     }
   };
 
-  const handleTaskAdded = (newTask) => {
-    setTasks((prev) => [...prev, newTask]);
+  // ── Delete task ──
+  const handleDelete = async (id) => {
+    if (!window.confirm("Xóa task này?")) return;
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await fetch(`${API_BASE}/tasks/${id}`, { method: "DELETE" });
+    } catch {
+      // Silent fail – đã xóa khỏi UI
+    }
   };
 
+  // ── Loading state ──
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
-        <svg
-          className="animate-spin h-8 w-8 mr-3 text-blue-500"
-          viewBox="0 0 24 24"
-          fill="none"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8v8z"
-          />
-        </svg>
-        Đang tải dữ liệu...
+      <div className="flex items-center justify-center h-64 text-gray-400 gap-3">
+        <Loader2 size={28} className="animate-spin text-blue-500" />
+        <span className="text-sm">Đang tải dữ liệu...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-64 text-red-500 flex-col gap-2">
-        <span className="text-3xl">⚠️</span>
-        <p className="font-medium">Lỗi: {error}</p>
+      <div className="flex items-center justify-center h-64 flex-col gap-3 text-red-500">
+        <AlertCircle size={36} strokeWidth={1.5} />
+        <p className="font-semibold">{error}</p>
         <p className="text-sm text-gray-400">
           Kiểm tra Backend đang chạy ở localhost:5000
         </p>
+        <button
+          onClick={fetchTasks}
+          className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline mt-1"
+        >
+          <RefreshCw size={14} /> Thử lại
+        </button>
       </div>
     );
   }
@@ -345,49 +457,65 @@ export default function KanbanBoard() {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">📌 Kanban Board</h2>
+          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <Flag size={20} className="text-blue-600" /> Kanban Board
+          </h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Kéo thả task để cập nhật tiến độ
+            Kéo thả task giữa các cột để cập nhật tiến độ
+            {updatingId && (
+              <span className="ml-2 text-blue-500 text-xs animate-pulse">
+                • Đang lưu...
+              </span>
+            )}
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-sm shadow transition-colors"
-        >
-          <span className="text-lg leading-none">+</span> Thêm Task
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchTasks}
+            className="flex items-center gap-1.5 border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm transition-colors"
+          >
+            <RefreshCw size={14} /> Làm mới
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm shadow-sm transition-colors"
+          >
+            <Plus size={16} /> Thêm Task
+          </button>
+        </div>
       </div>
 
-      {/* Kanban columns */}
+      {/* Board */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4 flex-1 items-start">
           {COLUMNS.map((col) => (
             <KanbanColumn
               key={col.id}
               column={col}
-              tasks={tasksByColumn[col.id]}
+              tasks={byColumn[col.id]}
+              onDelete={handleDelete}
             />
           ))}
         </div>
 
-        {/* Ghost card khi đang kéo */}
         <DragOverlay>
-          {activeTask ? <TaskCard task={activeTask} overlay /> : null}
+          {activeTask ? (
+            <TaskCard task={activeTask} onDelete={() => {}} overlay />
+          ) : null}
         </DragOverlay>
       </DndContext>
 
-      {/* Modal */}
       {showModal && (
         <AddTaskModal
           onClose={() => setShowModal(false)}
-          onAdded={handleTaskAdded}
+          onAdded={(t) => setTasks((prev) => [t, ...prev])}
         />
       )}
     </div>

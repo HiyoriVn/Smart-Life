@@ -1,18 +1,15 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
-const userRoutes = require('./users');
-const courseRoutes = require('./courses');
-const taskRoutes = require('./tasks');
-const scheduleRoutes = require('./schedules');
-const examRoutes = require('./exams');
-const statisticsRoutes = require('./statistics');
+// ── Core routes (Frontend) ────────────────────────────────────────────────────
+router.use("/tasks", require("./taskRoute"));
+router.use("/courses", require("./courseRoute"));
+router.use("/schedules", require("./scheduleRoute"));
+router.use("/ai", require("./aiRoute"));
 
-router.use('/users', userRoutes);
-router.use('/courses', courseRoutes);
-router.use('/tasks', taskRoutes);
-router.use('/schedules', scheduleRoutes);
-router.use('/exams', examRoutes);
-router.use('/statistics', statisticsRoutes);
+// ── Extended routes ───────────────────────────────────────────────────────────
+router.use("/users", require("./userRoute"));
+router.use("/exams", require("./examRoute"));
+router.use("/statistics", require("./statisticsRoute"));
 
 module.exports = router;

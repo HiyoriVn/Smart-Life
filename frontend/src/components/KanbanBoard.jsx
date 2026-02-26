@@ -10,7 +10,7 @@ import {
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 const API_BASE = "http://localhost:5000/api";
-const HARDCODED_USER_ID = "1"; // Hackathon shortcut — bỏ qua đăng nhập
+const HARDCODED_USER_ID = "00000000-0000-0000-0000-000000000001"; // Hackathon shortcut — bỏ qua đăng nhập
 
 const COLUMNS = [
   {

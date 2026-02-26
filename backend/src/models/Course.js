@@ -1,5 +1,10 @@
-module.exports = (sequelize, DataTypes) => {
-  const Course = sequelize.define('Course', {
+const { Model, DataTypes } = require("sequelize");
+const sequelize = require("../config/database");
+
+class Course extends Model {}
+
+Course.init(
+  {
     id: {
       type: DataTypes.UUID,
       primaryKey: true,
@@ -17,33 +22,21 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: 'Users',
-        key: 'id',
+        model: "users",
+        key: "id",
       },
     },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
     },
-  }, {
-    tableName: 'courses',
+  },
+  {
+    sequelize,
+    modelName: "Course",
+    tableName: "courses",
     timestamps: false,
-  });
+  },
+);
 
-  Course.associate = (models) => {
-    Course.belongsTo(models.User, {
-      foreignKey: 'user_id',
-      as: 'user',
-    });
-    Course.hasMany(models.Task, {
-      foreignKey: 'course_id',
-      as: 'tasks',
-    });
-    Course.hasMany(models.Exam, {
-      foreignKey: 'course_id',
-      as: 'exams',
-    });
-  };
-
-  return Course;
-};
+module.exports = Course;

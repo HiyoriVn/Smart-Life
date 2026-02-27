@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { TopBar } from '../components/TopBar';
 import { TimeRangeNav } from '../components/TimeRangeNav';
 import { useTheme } from '../ThemeContext';
@@ -6,10 +7,12 @@ import { Zap, Play, Download, AlertTriangle, Clock, Calendar as CalendarIcon, Ch
 import { useState, useMemo } from 'react';
 import { useApp } from '../AppContext';
 import { Task, ClassItem } from '../types';
+import { toLocalDateString } from '../lib/dateUtils';
 
 export function AutoScheduler() {
   const { theme } = useTheme();
-  const { state, setAutoResult, addClass, setClasses } = useApp();
+  const { state, setAutoResult, addClass, setClasses, toast } = useApp();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState({
     startHour: '08:00',
@@ -53,7 +56,7 @@ export function AutoScheduler() {
         if (currentDay < settings.numDays) {
           const date = new Date(weekStart);
           date.setDate(weekStart.getDate() + currentDay);
-          const dateStr = date.toISOString().split('T')[0];
+          const dateStr = toLocalDateString(date);
 
           result.push({
             id: Math.random(),
@@ -97,10 +100,12 @@ export function AutoScheduler() {
     endRange.setDate(weekStart.getDate() + settings.numDays);
     
     // Remove existing auto blocks in the range
+    const startStr = toLocalDateString(weekStart);
+    const endStr = toLocalDateString(endRange);
+
     const filteredClasses = state.classes.filter(c => {
       if (!c.isAuto || !c.dateStr) return true;
-      const d = new Date(c.dateStr);
-      return d < weekStart || d >= endRange;
+      return c.dateStr < startStr || c.dateStr >= endStr;
     });
 
     const newClasses = [...filteredClasses];
@@ -111,9 +116,10 @@ export function AutoScheduler() {
 
     setClasses(newClasses);
     setAutoResult([], 0);
+    toast("Successfully applied to calendar!", "success");
     
     setTimeout(() => {
-      window.location.href = '/schedule';
+      navigate('/schedule');
     }, 600);
   };
 

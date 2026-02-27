@@ -1,6 +1,13 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { AppState, Task, ClassItem, StudyItem, ScoreHistoryEntry } from './types';
+import { AppState, Task, ClassItem, StudyItem, ScoreHistoryEntry, User, Session } from './types';
 import { getStartOfWeek, getEndOfWeek, addDays } from './lib/dateUtils';
+import { cn } from './lib/utils';
+import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
+
+interface Toast {
+  message: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+}
 
 interface AppContextType {
   state: AppState;
@@ -20,11 +27,33 @@ interface AppContextType {
   nextWeek: () => void;
   prevWeek: () => void;
   goToday: () => void;
+  // Auth
+  login: (email: string, password: string, remember: boolean) => Promise<void>;
+  signup: (fullName: string, email: string, password: string) => Promise<void>;
+  logout: () => void;
+  resetPassword: (email: string, newPassword: string) => Promise<void>;
+  toast: (message: string, type?: Toast['type']) => void;
+  currentToast: Toast | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const INITIAL_STATE: AppState = {
+  tasks: [],
+  classes: [],
+  studyItems: [],
+  scoreHistory: [],
+  autoResult: [],
+  unscheduledCount: 0,
+  dateRange: {
+    currentWeekStart: getStartOfWeek(new Date()).toISOString(),
+    currentWeekEnd: getEndOfWeek(new Date()).toISOString(),
+  },
+  currentUser: null,
+  session: null,
+};
+
+const DEFAULT_DATA: Partial<AppState> = {
   tasks: [
     { id: 1, name: 'Finish Project Proposal', status: 'progress', priority: 'high', category: 'work', deadline: new Date(Date.now() + 86400000).toISOString(), duration: 120, note: 'Drafting the main sections', order: 1 },
     { id: 2, name: 'Study Algorithms', status: 'todo', priority: 'medium', category: 'study', deadline: new Date(Date.now() + 172800000).toISOString(), duration: 90, note: 'Focus on sorting', order: 1 },
@@ -37,33 +66,131 @@ const INITIAL_STATE: AppState = {
   studyItems: [
     { subject: 'Math', minsPerSession: 45, color: '#6366f1', topics: ['Calculus', 'Linear Algebra'] },
   ],
-  scoreHistory: [],
-  autoResult: [],
-  unscheduledCount: 0,
-  dateRange: {
-    currentWeekStart: getStartOfWeek(new Date()).toISOString(),
-    currentWeekEnd: getEndOfWeek(new Date()).toISOString(),
-  },
 };
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AppState>(() => {
-    const saved = localStorage.getItem('appState');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse appState', e);
+  const [state, setState] = useState<AppState>(INITIAL_STATE);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [currentToast, setCurrentToast] = useState<Toast | null>(null);
+
+  // Initialize from localStorage
+  useEffect(() => {
+    const sessionStr = localStorage.getItem('slsSession');
+    if (sessionStr) {
+      const session: Session = JSON.parse(sessionStr);
+      if (new Date(session.expiresAt) > new Date()) {
+        const users: User[] = JSON.parse(localStorage.getItem('slsUsers') || '[]');
+        const user = users.find(u => u.id === session.userId);
+        if (user) {
+          const userDataKey = `slsData_${user.id}`;
+          const savedData = localStorage.getItem(userDataKey);
+          let userState = INITIAL_STATE;
+          if (savedData) {
+            userState = { ...INITIAL_STATE, ...JSON.parse(savedData) };
+          } else {
+            userState = { ...INITIAL_STATE, ...DEFAULT_DATA };
+          }
+          setState({ ...userState, currentUser: user, session });
+          return;
+        }
+      } else {
+        localStorage.removeItem('slsSession');
       }
     }
-    return INITIAL_STATE;
-  });
+    setState(INITIAL_STATE);
+  }, []);
 
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-
+  // Save to localStorage when state changes
   useEffect(() => {
-    localStorage.setItem('appState', JSON.stringify(state));
+    if (state.currentUser && state.session) {
+      const userDataKey = `slsData_${state.currentUser.id}`;
+      const { currentUser, session, ...dataToSave } = state;
+      localStorage.setItem(userDataKey, JSON.stringify(dataToSave));
+      
+      // Also sync theme to user object
+      const users: User[] = JSON.parse(localStorage.getItem('slsUsers') || '[]');
+      const updatedUsers = users.map(u => u.id === state.currentUser?.id ? { ...u, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' } : u);
+      localStorage.setItem('slsUsers', JSON.stringify(updatedUsers));
+    }
   }, [state]);
+
+  const toast = (message: string, type: Toast['type'] = 'info') => {
+    setCurrentToast({ message, type });
+    setTimeout(() => setCurrentToast(null), 3000);
+  };
+
+  const login = async (email: string, password: string, remember: boolean) => {
+    await new Promise(resolve => setTimeout(resolve, 800)); // Simulate loading
+    const users: User[] = JSON.parse(localStorage.getItem('slsUsers') || '[]');
+    const user = users.find(u => u.email === email);
+    
+    if (!user) throw new Error('Email chưa được đăng ký');
+    if (user.password !== btoa(password)) throw new Error('Mật khẩu không đúng');
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + (remember ? 30 : 7));
+
+    const session: Session = {
+      userId: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      loginAt: new Date().toISOString(),
+      expiresAt: expiresAt.toISOString()
+    };
+
+    localStorage.setItem('slsSession', JSON.stringify(session));
+    
+    const userDataKey = `slsData_${user.id}`;
+    const savedData = localStorage.getItem(userDataKey);
+    let userState = INITIAL_STATE;
+    if (savedData) {
+      userState = { ...INITIAL_STATE, ...JSON.parse(savedData) };
+    } else {
+      userState = { ...INITIAL_STATE, ...DEFAULT_DATA };
+    }
+    
+    setState({ ...userState, currentUser: user, session });
+    toast(`👋 Chào mừng trở lại, ${user.fullName}!`, 'success');
+  };
+
+  const signup = async (fullName: string, email: string, password: string) => {
+    const users: User[] = JSON.parse(localStorage.getItem('slsUsers') || '[]');
+    if (users.some(u => u.email === email)) throw new Error('Email này đã được đăng ký');
+
+    const newUser: User = {
+      id: `user_${Date.now()}`,
+      fullName,
+      email,
+      password: btoa(password),
+      avatar: fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+      createdAt: new Date().toISOString(),
+      theme: 'light'
+    };
+
+    users.push(newUser);
+    localStorage.setItem('slsUsers', JSON.stringify(users));
+    toast("🎉 Đăng ký thành công! Vui lòng đăng nhập.", 'success');
+  };
+
+  const logout = () => {
+    localStorage.removeItem('slsSession');
+    setState(INITIAL_STATE);
+    toast("Đã đăng xuất", 'info');
+  };
+
+  const resetPassword = async (email: string, newPassword: string) => {
+    const users: User[] = JSON.parse(localStorage.getItem('slsUsers') || '[]');
+    const userIndex = users.findIndex(u => u.email === email);
+    if (userIndex === -1) throw new Error('Email không tồn tại');
+    
+    if (users[userIndex].password === btoa(newPassword)) {
+      throw new Error('Mật khẩu mới không được trùng mật khẩu cũ');
+    }
+
+    users[userIndex].password = btoa(newPassword);
+    localStorage.setItem('slsUsers', JSON.stringify(users));
+    toast("✅ Đặt lại mật khẩu thành công!", 'success');
+  };
 
   const setTasks = (tasks: Task[]) => setState(prev => ({ ...prev, tasks }));
   const setClasses = (classes: ClassItem[]) => setState(prev => ({ ...prev, classes }));
@@ -198,9 +325,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsTaskModalOpen,
       nextWeek,
       prevWeek,
-      goToday
+      goToday,
+      login,
+      signup,
+      logout,
+      resetPassword,
+      toast,
+      currentToast
     }}>
       {children}
+      
+      {/* Toast Notification */}
+      {currentToast && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className={cn(
+            "px-6 py-4 rounded-2xl shadow-2xl border flex items-center space-x-3 min-w-[300px] backdrop-blur-md",
+            currentToast.type === 'success' && "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
+            currentToast.type === 'error' && "bg-rose-500/10 border-rose-500/20 text-rose-500",
+            currentToast.type === 'warning' && "bg-amber-500/10 border-amber-500/20 text-amber-500",
+            currentToast.type === 'info' && "bg-blue-500/10 border-blue-500/20 text-blue-500"
+          )}>
+            <div className={cn(
+              "w-8 h-8 rounded-full flex items-center justify-center",
+              currentToast.type === 'success' && "bg-emerald-500 text-white",
+              currentToast.type === 'error' && "bg-rose-500 text-white",
+              currentToast.type === 'warning' && "bg-amber-500 text-white",
+              currentToast.type === 'info' && "bg-blue-500 text-white"
+            )}>
+              {currentToast.type === 'success' && <CheckCircle2 className="w-5 h-5" />}
+              {currentToast.type === 'error' && <AlertCircle className="w-5 h-5" />}
+              {currentToast.type === 'warning' && <AlertTriangle className="w-5 h-5" />}
+              {currentToast.type === 'info' && <Info className="w-5 h-5" />}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold">{currentToast.message}</p>
+            </div>
+            <button 
+              onClick={() => setCurrentToast(null)}
+              className="text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </AppContext.Provider>
   );
 }

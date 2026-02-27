@@ -1,17 +1,82 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Eye, EyeOff, Calendar, ArrowRight } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Calendar, ArrowRight, Check, AlertCircle } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
+import { useApp } from '../AppContext';
 import { cn } from '../lib/utils';
 
 export function SignUp() {
   const { theme } = useTheme();
+  const { signup, toast } = useApp();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    agreeTerms: false
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [passwordStrength, setPasswordStrength] = useState(0); // 0: weak, 1: medium, 2: strong
 
-  const handleSubmit = (e: FormEvent) => {
+  useEffect(() => {
+    const pass = formData.password;
+    if (!pass) {
+      setPasswordStrength(0);
+      return;
+    }
+    
+    let strength = 0;
+    if (pass.length >= 8) {
+      const hasLetters = /[a-zA-Z]/.test(pass);
+      const hasNumbers = /[0-9]/.test(pass);
+      const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(pass);
+      
+      if (hasLetters && hasNumbers && hasSpecial) {
+        strength = 2; // Strong
+      } else if (hasLetters || hasNumbers) {
+        strength = 1; // Medium
+      }
+    } else {
+      strength = 0; // Weak
+    }
+    setPasswordStrength(strength);
+  }, [formData.password]);
+
+  const validateField = (name: string, value: any) => {
+    let error = '';
+    if (name === 'fullName') {
+      if (value.length < 2) error = 'Tên tối thiểu 2 ký tự';
+    } else if (name === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) error = 'Email không hợp lệ';
+    } else if (name === 'password') {
+      if (value.length < 8) error = 'Mật khẩu tối thiểu 8 ký tự';
+    } else if (name === 'confirmPassword') {
+      if (value !== formData.password) error = 'Mật khẩu không khớp';
+    }
+    setErrors(prev => ({ ...prev, [name]: error }));
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    navigate('/dashboard');
+    
+    // Final validation
+    if (formData.password !== formData.confirmPassword) {
+      toast('Mật khẩu không khớp', 'error');
+      return;
+    }
+    if (!formData.agreeTerms) return;
+
+    try {
+      await signup(formData.fullName, formData.email, formData.password);
+      setTimeout(() => {
+        navigate('/login', { state: { email: formData.email } });
+      }, 1500);
+    } catch (err: any) {
+      toast(err.message, 'error');
+    }
   };
 
   return (
@@ -61,12 +126,17 @@ export function SignUp() {
                   "w-full pl-12 pr-4 py-4 rounded-2xl border transition-all outline-none text-sm font-medium",
                   theme === 'dark' 
                     ? "bg-slate-800/50 border-slate-700 text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10" 
-                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10",
+                  errors.fullName && "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
                 )}
                 placeholder="Alex Johnson" 
                 type="text" 
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                onBlur={(e) => validateField('fullName', e.target.value)}
               />
             </div>
+            {errors.fullName && <p className="text-[10px] text-rose-500 font-bold ml-1">{errors.fullName}</p>}
           </div>
 
           <div className="space-y-2">
@@ -84,12 +154,17 @@ export function SignUp() {
                   "w-full pl-12 pr-4 py-4 rounded-2xl border transition-all outline-none text-sm font-medium",
                   theme === 'dark' 
                     ? "bg-slate-800/50 border-slate-700 text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10" 
-                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10",
+                  errors.email && "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
                 )}
                 placeholder="name@company.com" 
                 type="email" 
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onBlur={(e) => validateField('email', e.target.value)}
               />
             </div>
+            {errors.email && <p className="text-[10px] text-rose-500 font-bold ml-1">{errors.email}</p>}
           </div>
 
           <div className="space-y-2">
@@ -107,10 +182,14 @@ export function SignUp() {
                   "w-full pl-12 pr-12 py-4 rounded-2xl border transition-all outline-none text-sm font-medium",
                   theme === 'dark' 
                     ? "bg-slate-800/50 border-slate-700 text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10" 
-                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10",
+                  errors.password && "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
                 )}
                 placeholder="••••••••" 
                 type={showPassword ? "text" : "password"} 
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onBlur={(e) => validateField('password', e.target.value)}
               />
               <button 
                 type="button"
@@ -120,6 +199,42 @@ export function SignUp() {
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+            <div className="h-1 w-full bg-slate-200 rounded-full mt-1 overflow-hidden flex">
+              <div className={cn(
+                "h-full transition-all duration-500",
+                passwordStrength === 0 ? "w-1/3 bg-rose-500" : 
+                passwordStrength === 1 ? "w-2/3 bg-amber-500" : "w-full bg-emerald-500"
+              )} />
+            </div>
+            {errors.password && <p className="text-[10px] text-rose-500 font-bold ml-1">{errors.password}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <label className={cn("text-xs font-bold uppercase tracking-widest ml-1", theme === 'dark' ? "text-slate-400" : "text-slate-500")}>Confirm Password</label>
+            <div className="relative group">
+              <div className={cn(
+                "absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors",
+                theme === 'dark' ? "text-slate-500 group-focus-within:text-indigo-500" : "text-slate-400 group-focus-within:text-indigo-600"
+              )}>
+                <Lock className="w-5 h-5" />
+              </div>
+              <input 
+                required
+                className={cn(
+                  "w-full pl-12 pr-4 py-4 rounded-2xl border transition-all outline-none text-sm font-medium",
+                  theme === 'dark' 
+                    ? "bg-slate-800/50 border-slate-700 text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10" 
+                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10",
+                  errors.confirmPassword && "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                )}
+                placeholder="••••••••" 
+                type="password" 
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                onBlur={(e) => validateField('confirmPassword', e.target.value)}
+              />
+            </div>
+            {errors.confirmPassword && <p className="text-[10px] text-rose-500 font-bold ml-1">{errors.confirmPassword}</p>}
           </div>
 
           <div className="flex items-center space-x-2 ml-1 py-2">
@@ -127,6 +242,8 @@ export function SignUp() {
               id="terms" 
               className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 bg-transparent" 
               type="checkbox" 
+              checked={formData.agreeTerms}
+              onChange={(e) => setFormData({ ...formData, agreeTerms: e.target.checked })}
             />
             <label htmlFor="terms" className="text-xs font-semibold text-slate-500 cursor-pointer">
               I agree to the <span className="text-indigo-500">Terms of Service</span> and <span className="text-indigo-500">Privacy Policy</span>
@@ -135,7 +252,14 @@ export function SignUp() {
 
           <button 
             type="submit"
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-500/30 transition-all active:scale-[0.98] flex items-center justify-center space-x-2 group"
+            disabled={!formData.agreeTerms}
+            className={cn(
+              "w-full py-4 rounded-2xl font-bold text-sm shadow-lg transition-all active:scale-[0.98] flex items-center justify-center space-x-2 group",
+              formData.agreeTerms 
+                ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/30" 
+                : "bg-slate-300 text-slate-500 cursor-not-allowed shadow-none"
+            )}
+            title={!formData.agreeTerms ? "Vui lòng đồng ý điều khoản" : ""}
           >
             <span>Create Account</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />

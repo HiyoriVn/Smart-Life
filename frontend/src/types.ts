@@ -39,6 +39,24 @@ export interface ScoreHistoryEntry {
   score: number;
 }
 
+export interface User {
+  id: string;
+  fullName: string;
+  email: string;
+  password: string; // hashed with btoa
+  avatar: string;
+  createdAt: string;
+  theme: 'light' | 'dark';
+}
+
+export interface Session {
+  userId: string;
+  email: string;
+  fullName: string;
+  loginAt: string;
+  expiresAt: string;
+}
+
 export interface AppState {
   tasks: Task[];
   classes: ClassItem[];
@@ -50,4 +68,6 @@ export interface AppState {
     currentWeekStart: string; // ISO string
     currentWeekEnd: string;   // ISO string
   };
+  currentUser: User | null;
+  session: Session | null;
 }

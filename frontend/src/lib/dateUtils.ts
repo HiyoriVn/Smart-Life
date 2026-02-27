@@ -24,6 +24,14 @@ export function addDays(date: Date | string, n: number) {
   return d;
 }
 
+// Format ngày thành "YYYY-MM-DD" theo giờ địa phương
+export function toLocalDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Format ngày thành "YYYY-MM-DD" để gọi API
 export function toISODate(date: Date) {
   return date.toISOString().slice(0, 10);

@@ -1,17 +1,67 @@
-import { useState, FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Calendar, ArrowRight } from 'lucide-react';
+import { useState, FormEvent, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, Calendar, ArrowRight, Loader2 } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
+import { useApp } from '../AppContext';
 import { cn } from '../lib/utils';
 
 export function Login() {
   const { theme } = useTheme();
+  const { login, toast } = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutTime, setLockoutTime] = useState(0);
 
-  const handleSubmit = (e: FormEvent) => {
+  useEffect(() => {
+    if (location.state?.email) {
+      setEmail(location.state.email);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    let timer: any;
+    if (lockoutTime > 0) {
+      timer = setInterval(() => {
+        setLockoutTime(prev => prev - 1);
+      }, 1000);
+    } else if (lockoutTime === 0 && failedAttempts >= 5) {
+      setFailedAttempts(0);
+    }
+    return () => clearInterval(timer);
+  }, [lockoutTime, failedAttempts]);
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    navigate('/dashboard');
+    if (lockoutTime > 0) return;
+
+    if (!email || !password) {
+      toast('Vui lòng nhập đầy đủ thông tin', 'warning');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await login(email, password, remember);
+      setFailedAttempts(0);
+      navigate('/dashboard');
+    } catch (err: any) {
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      if (newAttempts >= 5) {
+        setLockoutTime(60);
+        toast('Sai quá nhiều lần. Vui lòng thử lại sau 60 giây.', 'error');
+      } else {
+        toast(err.message, 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -57,14 +107,18 @@ export function Login() {
               </div>
               <input 
                 required
+                disabled={loading || lockoutTime > 0}
                 className={cn(
                   "w-full pl-12 pr-4 py-4 rounded-2xl border transition-all outline-none text-sm font-medium",
                   theme === 'dark' 
                     ? "bg-slate-800/50 border-slate-700 text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10" 
-                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10",
+                  (loading || lockoutTime > 0) && "opacity-50 cursor-not-allowed"
                 )}
                 placeholder="name@company.com" 
                 type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
           </div>
@@ -83,17 +137,22 @@ export function Login() {
               </div>
               <input 
                 required
+                disabled={loading || lockoutTime > 0}
                 className={cn(
                   "w-full pl-12 pr-12 py-4 rounded-2xl border transition-all outline-none text-sm font-medium",
                   theme === 'dark' 
                     ? "bg-slate-800/50 border-slate-700 text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10" 
-                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                    : "bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10",
+                  (loading || lockoutTime > 0) && "opacity-50 cursor-not-allowed"
                 )}
                 placeholder="••••••••" 
                 type={showPassword ? "text" : "password"} 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
               <button 
                 type="button"
+                disabled={loading || lockoutTime > 0}
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-indigo-500 transition-colors"
               >
@@ -107,16 +166,33 @@ export function Login() {
               id="remember" 
               className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 bg-transparent" 
               type="checkbox" 
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
             />
             <label htmlFor="remember" className="text-xs font-semibold text-slate-500 cursor-pointer">Remember me for 30 days</label>
           </div>
 
           <button 
             type="submit"
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-500/30 transition-all active:scale-[0.98] flex items-center justify-center space-x-2 group"
+            disabled={loading || lockoutTime > 0}
+            className={cn(
+              "w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-500/30 transition-all active:scale-[0.98] flex items-center justify-center space-x-2 group",
+              (loading || lockoutTime > 0) && "opacity-70 cursor-not-allowed"
+            )}
           >
-            <span>Sign In</span>
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Signing In...</span>
+              </>
+            ) : lockoutTime > 0 ? (
+              <span>Thử lại sau: {lockoutTime}s</span>
+            ) : (
+              <>
+                <span>Sign In</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
           </button>
         </form>
 

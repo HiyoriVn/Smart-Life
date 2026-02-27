@@ -15,6 +15,7 @@ import { useTheme } from '../ThemeContext';
 import { cn } from '../lib/utils';
 import { useApp } from '../AppContext';
 import { ClassItem } from '../types';
+import { toLocalDateString } from '../lib/dateUtils';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 7); // 7:00 to 22:00
@@ -29,10 +30,12 @@ export function Schedule() {
   const weekEnd = useMemo(() => new Date(state.dateRange.currentWeekEnd), [state.dateRange.currentWeekEnd]);
 
   const weekClasses = useMemo(() => {
+    const startStr = toLocalDateString(weekStart);
+    const endStr = toLocalDateString(weekEnd);
+
     return state.classes.filter(c => {
       if (c.isAuto && c.dateStr) {
-        const d = new Date(c.dateStr);
-        return d >= weekStart && d <= weekEnd;
+        return c.dateStr >= startStr && c.dateStr <= endStr;
       }
       return !c.isAuto; // Fixed classes are always shown
     });

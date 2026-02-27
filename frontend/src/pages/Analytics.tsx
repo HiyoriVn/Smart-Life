@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { useMemo } from 'react';
+import { toLocalDateString } from '../lib/dateUtils';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -53,8 +54,9 @@ export function Analytics() {
       
       const studyMins = state.classes.filter(c => {
         if (c.isAuto && c.dateStr) {
-          const d = new Date(c.dateStr);
-          return d >= weekStart && d <= weekEnd && d.getDay() === jsDay;
+          const startStr = toLocalDateString(weekStart);
+          const endStr = toLocalDateString(weekEnd);
+          return c.dateStr >= startStr && c.dateStr <= endStr && new Date(c.dateStr).getDay() === jsDay;
         }
         return !c.isAuto && c.day === jsDay;
       }).reduce((acc, curr) => {

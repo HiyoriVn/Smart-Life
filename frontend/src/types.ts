@@ -1,9 +1,15 @@
-export type TaskStatus = 'todo' | 'planning' | 'progress' | 'review' | 'done' | 'cancelled';
-export type Priority = 'high' | 'medium' | 'low';
-export type Category = 'study' | 'work' | 'personal';
+export type TaskStatus =
+  | "todo"
+  | "planning"
+  | "progress"
+  | "review"
+  | "done"
+  | "cancelled";
+export type Priority = "high" | "medium" | "low";
+export type Category = "study" | "work" | "personal";
 
 export interface Task {
-  id: number;
+  id: string;
   name: string;
   status: TaskStatus;
   priority: Priority;
@@ -46,7 +52,7 @@ export interface User {
   password: string; // hashed with btoa
   avatar: string;
   createdAt: string;
-  theme: 'light' | 'dark';
+  theme: "light" | "dark";
 }
 
 export interface Session {
@@ -66,7 +72,7 @@ export interface AppState {
   unscheduledCount: number;
   dateRange: {
     currentWeekStart: string; // ISO string
-    currentWeekEnd: string;   // ISO string
+    currentWeekEnd: string; // ISO string
   };
   currentUser: User | null;
   session: Session | null;
